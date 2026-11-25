@@ -1,0 +1,5 @@
+outcome,sessions,median_page_value,median_product_pages,median_product_duration,median_exit_rate
+false negative (missed buyer),616,0.8328222685,37.0,1400.8276930000002,0.0221788445
+false positive (false alarm),328,19.655040695,32.5,1265.059524,0.0161958635
+true negative,7910,0.0,16.0,495.05,0.028888889
+true positive,910,31.750690820000003,24.5,939.59387995,0.0126790175

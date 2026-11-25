@@ -1,0 +1,10 @@
+,"Naive Bayes (tuned binned BernoulliNB, 17 raw features)"
+CV AP,0.5355 ± 0.0258
+CV ROC-AUC,0.8704 ± 0.0068
+CV F1,0.5797 ± 0.0103
+Test AP,0.5576
+Test ROC-AUC,0.8783
+Test Precision,0.4827
+Test Recall,0.767
+Test F1,0.5925
+Test Accuracy,0.8349

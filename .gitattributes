@@ -1,0 +1,7 @@
+# Store text files with LF line endings, whatever the OS or editor
+* text=auto eol=lf
+
+# Binary files: never convert or diff
+*.png binary
+*.pkl binary
+*.joblib binary

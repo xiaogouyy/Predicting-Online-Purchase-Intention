@@ -1,0 +1,16 @@
+{
+  "parameters": {
+    "subsample": 1.0,
+    "scale_pos_weight": 1,
+    "reg_lambda": 5,
+    "reg_alpha": 1,
+    "n_estimators": 200,
+    "min_child_weight": 3,
+    "max_depth": 5,
+    "learning_rate": 0.03,
+    "gamma": 0.1,
+    "colsample_bytree": 0.6
+  },
+  "threshold": 0.5,
+  "oof_f1_threshold": 0.33
+}
