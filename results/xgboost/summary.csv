@@ -1,0 +1,10 @@
+,"XGBoost (tuned, 17 raw features)"
+CV AP,0.7534 ± 0.0245
+CV ROC-AUC,0.9330 ± 0.0061
+CV F1,0.6582 ± 0.0162
+Test AP,0.7631
+Test ROC-AUC,0.938
+Test Precision,0.7311
+Test Recall,0.6335
+Test F1,0.6788
+Test Accuracy,0.9062

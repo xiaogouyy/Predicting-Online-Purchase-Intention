@@ -1,0 +1,3 @@
+,AP,ROC-AUC,Precision,Recall,F1,Accuracy,Train AP
+"Tuned BernoulliNB, with PageValues (main model)",0.5355 ± 0.0258,0.8704 ± 0.0068,0.4734 ± 0.0111,0.7477 ± 0.0173,0.5797 ± 0.0103,0.8305 ± 0.0059,0.5383
+"Same settings, without PageValues",0.3126 ± 0.0228,0.7353 ± 0.0143,0.2910 ± 0.0165,0.5439 ± 0.0242,0.3791 ± 0.0188,0.7213 ± 0.0133,0.3154

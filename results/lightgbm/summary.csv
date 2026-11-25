@@ -1,0 +1,10 @@
+,"LightGBM (tuned, 17 raw features)"
+CV AP,0.7540 ± 0.0252
+CV ROC-AUC,0.9331 ± 0.0063
+CV F1,0.6577 ± 0.0184
+Test AP,0.7569
+Test ROC-AUC,0.9366
+Test Precision,0.7358
+Test Recall,0.6126
+Test F1,0.6686
+Test Accuracy,0.905

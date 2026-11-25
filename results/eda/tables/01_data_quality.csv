@@ -1,0 +1,13 @@
+check,value,interpretation
+Rows,12330.0,One session per record
+Input features,17.0,Revenue is the separate target
+Missing cells,0.0,No missing-value filling needed for this file
+Infinite numeric cells,0.0,Expected: 0
+Negative numeric cells,0.0,"Counts, durations and rates should be nonnegative"
+"Rates outside [0,1]",0.0,"Observed BounceRates/ExitRates maxima are 0.2, not a universal domain bound"
+Fractional page counts,0.0,Counts should be whole numbers
+Exact duplicate rows beyond first,125.0,Candidate repeated records; identity cannot be verified
+Zero tracked-page sessions,6.0,Keep and flag
+Months represented,10.0,January and April are absent; no rows are invented
+Purchase sessions,1908.0,Positive class
+Purchase rate (%),15.4745,Imbalanced target

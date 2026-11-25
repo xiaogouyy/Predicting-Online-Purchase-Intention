@@ -1,0 +1,8 @@
+{
+  "parameters": {
+    "n_bins": 10,
+    "alpha": 2.0
+  },
+  "threshold": 0.5,
+  "oof_f1_threshold": 0.69
+}

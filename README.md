@@ -42,48 +42,55 @@
 
 ```
 .
-├── README.md                                 ← this file
-├── requirements.txt                          ← Python dependencies
-├── train_raw.csv                             ← shared training split (9,764 sessions)
-├── test_raw.csv                              ← shared held-out test split (2,441 sessions)
+├── README.md                       ← this file
+├── requirements.txt                ← Python dependencies
+├── session_preprocessing.py        ← helper module imported by the EDA notebook
 │
-├── Online_Purchase_Intention_EDA 3.0.ipynb   ← 1. data understanding, EDA, feature engineering, split
-├── session_preprocessing.py                  ←    helper module imported by the EDA notebook
+├── data/                           ← not committed; see data/README.md for how to get it
+│   ├── raw/                        ←    online_shoppers_intention.csv from UCI
+│   └── processed/                  ←    train_raw.csv (9,764 sessions), test_raw.csv (2,441), written by 01_eda
 │
-├── logistic_regression.ipynb                 ← 2. individual model notebooks (one per team member)
-├── naive Bayes.ipynb
-├── knn_project.ipynb
-├── random_forest_project.ipynb
-├── XGboost.ipynb
-├── LightGBM.ipynb
-├── LR_README.md                              ←    notes for the LR notebook
-├── logistic_regression_results/              ←    LR models, CV tables, plots, OOF predictions
-├── knn_results/                              ←    KNN model, CV tables, plots
+├── notebooks/                      ← numbered in the order to run them
+│   ├── 01_eda.ipynb                ← 1. data understanding, EDA, feature engineering, split
+│   ├── 02_logistic_regression.ipynb  ← 2. individual model notebooks (one per team member)
+│   ├── 03_naive_bayes.ipynb
+│   ├── 04_random_forest.ipynb
+│   ├── 05_knn.ipynb
+│   ├── 06_xgboost.ipynb
+│   ├── 07_lightgbm.ipynb
+│   ├── 08_model_comparison.ipynb   ← 3. all six models in one leak-free pipeline, error analysis, shortlist
+│   └── 09_fine_tuning.ipynb        ← 4. tuning, ensembles, final model, test evaluation
 │
-├── model_comparison.ipynb                    ← 3. all six models in one leak-free pipeline, error analysis, shortlist
-├── model_comparison_results/                 ←    CV tables, importance, error overlap, shortlist.json
-│
-├── fine_tuning_models.ipynb                  ← 4. tuning, ensembles, final model, test evaluation
-└── fine_tuning_results/                      ←    before/after tuning, ensemble selection, test results and CI
+└── results/                        ← outputs, one folder per notebook (same name without the number)
+    ├── eda/                        ←    figures, tables, fitted preprocessors
+    ├── logistic_regression/        ←    CV tables, plots, OOF predictions; README.md with the LR notes
+    ├── naive_bayes/  random_forest/  knn/  xgboost/  lightgbm/
+    ├── model_comparison/           ←    CV tables, importance, error overlap, shortlist.json
+    └── fine_tuning/                ←    ensemble selection, test results and CI
 ```
 
-**Reading order:** EDA → individual model notebooks → `model_comparison.ipynb` → `fine_tuning_models.ipynb`. The last two notebooks hold the team's official comparison and final model; the individual notebooks document each member's own exploration of their model.
+**Reading order:** EDA → individual model notebooks → `08_model_comparison.ipynb` → `09_fine_tuning.ipynb`. The last two notebooks hold the team's official comparison and final model; the individual notebooks document each member's own exploration of their model.
+
+Fitted model files (`*.pkl`, `*.joblib`) are not committed; running a notebook writes them to its `results/` folder.
 
 ## How to run
 
 ```bash
 git clone https://github.com/xiaogouyy/Predicting-Online-Purchase-Intention.git
 cd Predicting-Online-Purchase-Intention
+python -m venv .venv && source .venv/bin/activate   # Python 3.11+
 pip install -r requirements.txt
 jupyter lab        # or open the notebooks in VS Code / Google Colab
 ```
 
-- The modelling notebooks use `train_raw.csv` for training. Some individual-model notebooks also use `test_raw.csv` for exploratory evaluation, as acknowledged in Section 5.
-- `model_comparison.ipynb` writes `model_comparison_results/shortlist.json`, which `fine_tuning_models.ipynb` reads, so run them in that order.
-- `fine_tuning_models.ipynb` runs several random searches and takes about 25 minutes on a laptop.
-- In the final modelling workflow, `fine_tuning_models.ipynb` performs the final test-set evaluation in a guarded cell at the end. Earlier test-set evaluations in individual-model notebooks are discussed in Section 5.
+1. **Get the data** (not stored in the repo): download the UCI file to `data/raw/` and run `01_eda.ipynb`, which writes `data/processed/train_raw.csv` and `test_raw.csv`. Step-by-step instructions and checksums are in [data/README.md](data/README.md).
+2. Run the notebooks in number order. They work when opened from `notebooks/` or from the repo root.
 
-> **Note:** the EDA notebook needs the original UCI file and the helper module `session_preprocessing.py` (included in this repo). To re-run it, download the dataset from the [UCI page](https://archive.ics.uci.edu/dataset/468/online+shoppers+purchasing+intention+dataset) and save it as `data/raw/online_shoppers_intention.csv`. The notebook writes its outputs to `data/processed/`, `figures/` and `tables/`; the split it produces is the same as `train_raw.csv` / `test_raw.csv` in the repo root, which every modelling notebook uses. You do not need to re-run the EDA to run the modelling notebooks.
+- The modelling notebooks use `train_raw.csv` for training. Some individual-model notebooks also use `test_raw.csv` for exploratory evaluation, as acknowledged in Section 5.
+- `08_model_comparison.ipynb` writes `results/model_comparison/shortlist.json`, which `09_fine_tuning.ipynb` reads, so run them in that order.
+- `09_fine_tuning.ipynb` runs several random searches and takes about 25 minutes on a laptop.
+- In the final modelling workflow, `09_fine_tuning.ipynb` performs the final test-set evaluation in a guarded cell at the end. Earlier test-set evaluations in individual-model notebooks are discussed in Section 5.
+
 ---
 
 ## 1. Frame the problem and look at the big picture
@@ -119,7 +126,7 @@ Only **15.6%** of sessions end in a purchase, so accuracy is misleading (the do-
 
 ## 2. Explore the data
 
-*(Notebook: `Online_Purchase_Intention_EDA 3.0.ipynb`)*
+*(Notebook: `01_eda.ipynb`)*
 
 ### Dataset overview
 - **Dataset size:** **12,330 raw sessions**, with **17 input features** and **1 target** (`Revenue`). Each row represents an online shopping session, and the dataset covers one year.
@@ -173,7 +180,7 @@ To avoid peeking at the test set, the **train/test split was made before any tar
 - Page counts and their durations are strongly correlated with each other, and so are `BounceRates` and `ExitRates`. This **redundancy** matters for models that assume independent features (see naive Bayes below).
 
 ### The `PageValues` question
-`PageValues` is the Google Analytics value credited to the pages a visitor saw before a transaction. If a session's value includes its **own** purchase, the feature leaks the answer. Evidence from the training data (`model_comparison.ipynb` §2):
+`PageValues` is the Google Analytics value credited to the pages a visitor saw before a transaction. If a session's value includes its **own** purchase, the feature leaks the answer. Evidence from the training data (`08_model_comparison.ipynb` §2):
 - **It is not a copy of the outcome:** 19.5% of buyers have `PageValues = 0`, and 11.6% of non-buyers have a positive value. A value computed from the session's own purchase would be positive for every buyer.
 - **Indirect leakage is still possible:** if the page values were computed over the same period, they include these sessions' purchases, which works like target encoding fitted on all the data.
 
@@ -187,7 +194,7 @@ To avoid peeking at the test set, the **train/test split was made before any tar
 
 ## 3. Prepare the data, then measure and compare models
 
-*(Notebook: `model_comparison.ipynb`, which reads the training set only)*
+*(Notebook: `08_model_comparison.ipynb`, which reads the training set only)*
 
 ### Train/test split
 - **Stratified 80/20 split**, `random_state=42`, made once in the EDA notebook and saved as `train_raw.csv` / `test_raw.csv`.
@@ -224,7 +231,7 @@ Every model uses **5-fold stratified CV** (`StratifiedKFold(5, shuffle=True, ran
 - Logistic regression and naive Bayes have similar train and CV AP: they **underfit**; their model form is the limit.
 - Fold SDs are about 0.02, so gaps smaller than that are not meaningful.
 
-![Cross-validated AP of the six models](model_comparison_results/iteration1_cv.png)
+![Cross-validated AP of the six models](results/model_comparison/iteration1_cv.png)
 
 *All six models beat random ranking (dashed line, AP 0.156); the tree ensembles lead.*
 
@@ -283,7 +290,7 @@ The models largely make the **same** errors: random forest and LightGBM share 70
 
 ## 4. Fine-tune the system
 
-*(Notebook: `fine_tuning_models.ipynb`)*
+*(Notebook: `09_fine_tuning.ipynb`)*
 
 ### Search method
 - **Random search for every model** (60–80 candidates each), because each search space has 8–13 hyperparameters with thousands to millions of combinations. Random search tries more distinct values of the important parameters than a grid (Bergstra & Bengio, 2012).
@@ -321,7 +328,7 @@ Tuning mostly **reduced overfitting**. All four tuned models **dropped the engin
 
 The gain over the best single model is small (+0.003) because the tuned models' scores are highly correlated (Spearman 0.88–0.98). KNN, the least correlated member, is what lifts the four-model ensembles above the tree-only ones.
 
-![Final selection of all candidates on 15 fresh folds](fine_tuning_results/final_selection.png)
+![Final selection of all candidates on 15 fresh folds](results/fine_tuning/final_selection.png)
 
 *Tuning lifted every shortlisted model; stacking all four tuned models scored highest, slightly ahead of tuned XGBoost.*
 
@@ -348,7 +355,7 @@ A logistic regression combines the four tuned models' probabilities. It was refi
 | **Actual no purchase** | 1,936 | 123 |
 | **Actual purchase** | 113 | **269** |
 
-![Test confusion matrix, precision-recall and ROC curves](fine_tuning_results/final_test_curves.png)
+![Test confusion matrix, precision-recall and ROC curves](results/fine_tuning/final_test_curves.png)
 
 *On the held-out test set, the model (AP 0.76) beats the PageValues rule (AP 0.62) at almost every recall level.*
 
@@ -359,7 +366,7 @@ A logistic regression combines the four tuned models' probabilities. It was refi
 ### What drives the final model
 Permutation importance on a training validation fold: **`PageValues` 0.556**, `Month` 0.046, `ExitRates` 0.030, `BounceRates` 0.016, then product and administrative page counts. Region, browser, operating system and weekend contribute almost nothing.
 
-![Permutation importance of the final model](fine_tuning_results/final_permutation_importance.png)
+![Permutation importance of the final model](results/fine_tuning/final_permutation_importance.png)
 
 *PageValues is the number-one predictor of purchase; month and exit rate come next.*
 
@@ -375,7 +382,7 @@ Permutation importance on a training validation fold: **`PageValues` 0.556**, `M
 | KNN | 0.707 | 0.318 |
 | Naive Bayes | 0.535 | 0.312 |
 
-*(Individual models at iteration-1 settings, from `model_comparison.ipynb` §2.)*
+*(Individual models at iteration-1 settings, from `08_model_comparison.ipynb` §2.)*
 
 *Note: The stacking AP of 0.758 reported in this sensitivity analysis is separate from the main repeated cross-validation estimate of 0.757 ± 0.013. Both values are cross-validation results, not test-set scores.*
 

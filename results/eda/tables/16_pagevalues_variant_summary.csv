@@ -1,0 +1,3 @@
+variant,PageValues_included,training_rows,test_rows,original_inputs,engineered_columns,prepared_columns,preprocessing_executed,predictive_model_trained
+without_pagevalues,False,9764,2441,16,28,84,True,False
+with_pagevalues,True,9764,2441,17,29,85,True,False
