@@ -76,8 +76,8 @@ Fitted model files (`*.pkl`, `*.joblib`) are not committed; running a notebook w
 ## How to run
 
 ```bash
-git clone https://github.com/xiaogouyy/MGSC674-Group-Project.git
-cd MGSC674-Group-Project
+git clone https://github.com/xiaogouyy/Predicting-Online-Purchase-Intention.git
+cd Predicting-Online-Purchase-Intention
 python -m venv .venv && source .venv/bin/activate   # Python 3.11+
 pip install -r requirements.txt
 jupyter lab        # or open the notebooks in VS Code / Google Colab
