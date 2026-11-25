@@ -48,7 +48,7 @@ shasum -a 256 data/raw/online_shoppers_intention.csv
 
 Run `notebooks/01_eda.ipynb` from start to finish. It removes the 125 exact duplicate sessions, makes a stratified 80/20 split (`random_state=42`), and writes `train_raw.csv` and `test_raw.csv` to `data/processed/`. The other notebooks read these two files, so run the EDA notebook first.
 
-The EDA notebook imports `session_preprocessing.py` from the repo root. Get that file from the team if it is not in your copy.
+The EDA notebook imports `session_preprocessing.py` from the repo root (included in the repo).
 
 Check the split:
 

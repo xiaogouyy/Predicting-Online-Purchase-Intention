@@ -13,3 +13,4 @@ lightgbm>=4.0
 
 # Running the notebooks
 ipykernel>=6.29
+jupyterlab>=4.0

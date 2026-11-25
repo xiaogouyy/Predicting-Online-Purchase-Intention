@@ -1,0 +1,61 @@
+{
+  "source_sha256": "b3055ee355f59134d851d32641183cb4a8b45def7124d2f50442a042f358e0d9",
+  "random_state": 42,
+  "test_size": 0.2,
+  "raw_sessions": 12330,
+  "raw_features": 17,
+  "raw_purchase_count": 1908,
+  "raw_purchase_rate": 0.15474452554744525,
+  "missing_cells": 0,
+  "exact_duplicates_removed": 125,
+  "clean_sessions": 12205,
+  "train_sessions": 9764,
+  "test_sessions": 2441,
+  "train_purchases": 1526,
+  "test_purchases": 382,
+  "train_conversion_rate": 0.15628840639082342,
+  "test_conversion_rate": 0.15649324047521507,
+  "engineered_features_added": 12,
+  "default_original_features": 16,
+  "engineered_columns": 28,
+  "prepared_columns": 84,
+  "excluded_default_features": [
+    "PageValues"
+  ],
+  "versions": {
+    "Python": "3.13.14",
+    "numpy": "2.5.1",
+    "pandas": "2.3.3",
+    "scipy": "1.16.3",
+    "scikit-learn": "1.9.0",
+    "matplotlib": "3.11.0",
+    "seaborn": "0.13.2",
+    "joblib": "1.6.0"
+  },
+  "pagevalues_policy": "Matched with/without feature variants; potential leakage, not confirmed",
+  "variants": [
+    {
+      "variant": "without_pagevalues",
+      "PageValues_included": false,
+      "training_rows": 9764,
+      "test_rows": 2441,
+      "original_inputs": 16,
+      "engineered_columns": 28,
+      "prepared_columns": 84,
+      "preprocessing_executed": true,
+      "predictive_model_trained": false
+    },
+    {
+      "variant": "with_pagevalues",
+      "PageValues_included": true,
+      "training_rows": 9764,
+      "test_rows": 2441,
+      "original_inputs": 17,
+      "engineered_columns": 29,
+      "prepared_columns": 85,
+      "preprocessing_executed": true,
+      "predictive_model_trained": false
+    }
+  ],
+  "predictive_models_trained": false
+}

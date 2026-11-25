@@ -1,0 +1,13 @@
+feature,formula,business_rationale,transformation
+TotalPages,Administrative + Informational + ProductRelated,Overall browsing depth,log1p + standardize
+TotalDuration,Sum of the three page-type durations,Overall recorded engagement,log1p + standardize
+AvgTimePerPage,TotalDuration / TotalPages,Time intensity per tracked page,log1p + standardize
+AvgProductTime,ProductRelated_Duration / ProductRelated,Product research intensity,log1p + standardize
+AvgAdminTime,Administrative_Duration / Administrative,Administrative navigation intensity,log1p + standardize
+AvgInfoTime,Informational_Duration / Informational,Informational research intensity,log1p + standardize
+ProductPageShare,ProductRelated / TotalPages,Fraction of tracked pages related to products,standardize
+ProductTimeShare,ProductRelated_Duration / TotalDuration,Fraction of recorded time on products,standardize
+NoTrackedPages,"1 if TotalPages = 0, else 0",Distinguishes undefined page-average denominators,0/1
+ZeroDurationSession,1 if TotalPages > 0 and TotalDuration = 0,Marks a session with no recorded dwell time,0/1
+HasInformational,"1 if Informational > 0, else 0",Separates any informational browsing from none,0/1
+HasAdministrative,"1 if Administrative > 0, else 0",Separates any administrative browsing from none,0/1
