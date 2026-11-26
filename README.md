@@ -38,19 +38,68 @@
 
 ---
 
+## Software architecture
+
+The diagram is written as code (Mermaid), so GitHub renders it and it changes with the project: solid arrows exist now, and dashed boxes and arrows are planned (one feature branch per team member).
+
+```mermaid
+flowchart LR
+    subgraph DATA["Data"]
+        RAW["UCI raw CSV<br/>data/raw"]
+        EDA["01_eda.ipynb<br/>dedupe + stratified 80/20 split"]
+        SPLIT[("train_raw.csv / test_raw.csv<br/>data/processed")]
+        VALID["Data validation<br/>(planned)"]
+    end
+
+    subgraph MODEL["Modelling"]
+        PREP["notebooks/session_preprocessing.py<br/>shared feature pipeline"]
+        NB["Notebooks 02-09<br/>individual models, comparison,<br/>tuning, final stacking ensemble"]
+        TRAIN["src/train_mlflow.py<br/>5-fold CV, logs 6 models"]
+        REFAC["Training pipeline refactor<br/>(planned)"]
+    end
+
+    subgraph SERVE["Tracking & serving"]
+        TRACK[("MLflow tracking<br/>local SQLite: mlflow.db")]
+        REG["MLflow Model Registry<br/>purchase-intent-stacking<br/>alias: champion"]
+        API["Prediction API<br/>FastAPI (planned)"]
+        APP["Streamlit app<br/>marketing users (planned)"]
+    end
+
+    subgraph CI["CI"]
+        PUSH["Push / pull request<br/>from feature/* branches"]
+        GHA["GitHub Actions<br/>pytest unit tests"]
+        MAIN["Protected main branch"]
+    end
+
+    RAW --> EDA --> SPLIT --> PREP
+    SPLIT -.-> VALID -.-> PREP
+    PREP --> NB
+    PREP --> TRAIN
+    TRAIN -.-> REFAC
+    TRAIN -->|"params, metrics, models"| TRACK
+    TRACK --> REG
+    REG -.->|"loads champion model"| API
+    API -.-> APP
+    PUSH --> GHA -->|"required check"| MAIN
+
+    classDef planned stroke-dasharray: 5 5
+    class VALID,REFAC,API,APP planned
+```
+
 ## Repository structure
 
 ```
 .
 ├── README.md                       ← this file
 ├── requirements.txt                ← Python dependencies
-├── session_preprocessing.py        ← helper module imported by the EDA notebook
+├── .github/workflows/ci.yml        ← GitHub Actions: runs pytest on every push and pull request
 │
 ├── data/                           ← not committed; see data/README.md for how to get it
 │   ├── raw/                        ←    online_shoppers_intention.csv from UCI
 │   └── processed/                  ←    train_raw.csv (9,764 sessions), test_raw.csv (2,441), written by 01_eda
 │
 ├── notebooks/                      ← numbered in the order to run them
+│   ├── session_preprocessing.py    ← shared feature pipeline, used by the notebooks, src/ and tests/
 │   ├── 01_eda.ipynb                ← 1. data understanding, EDA, feature engineering, split
 │   ├── 02_logistic_regression.ipynb  ← 2. individual model notebooks (one per team member)
 │   ├── 03_naive_bayes.ipynb
@@ -62,7 +111,7 @@
 │   └── 09_fine_tuning.ipynb        ← 4. tuning, ensembles, final model, test evaluation
 │
 ├── src/train_mlflow.py             ← logs the models to MLflow and registers the final model
-├── tests/                          ← pytest unit tests (run by GitHub Actions)
+├── tests/                          ← pytest unit tests for the preprocessing and the models (run by CI)
 ├── docs/mlflow/                    ← MLflow UI screenshots
 │
 └── results/                        ← outputs, one folder per notebook (same name without the number)
