@@ -61,6 +61,10 @@
 │   ├── 08_model_comparison.ipynb   ← 3. all six models in one leak-free pipeline, error analysis, shortlist
 │   └── 09_fine_tuning.ipynb        ← 4. tuning, ensembles, final model, test evaluation
 │
+├── src/train_mlflow.py             ← logs the models to MLflow and registers the final model
+├── tests/                          ← pytest unit tests (run by GitHub Actions)
+├── docs/mlflow/                    ← MLflow UI screenshots
+│
 └── results/                        ← outputs, one folder per notebook (same name without the number)
     ├── eda/                        ←    figures, tables, fitted preprocessors
     ├── logistic_regression/        ←    CV tables, plots, OOF predictions; README.md with the LR notes
@@ -90,6 +94,34 @@ jupyter lab        # or open the notebooks in VS Code / Google Colab
 - `08_model_comparison.ipynb` writes `results/model_comparison/shortlist.json`, which `09_fine_tuning.ipynb` reads, so run them in that order.
 - `09_fine_tuning.ipynb` runs several random searches and takes about 25 minutes on a laptop.
 - In the final modelling workflow, `09_fine_tuning.ipynb` performs the final test-set evaluation in a guarded cell at the end. Earlier test-set evaluations in individual-model notebooks are discussed in Section 5.
+
+## Experiment tracking (MLflow)
+
+[src/train_mlflow.py](src/train_mlflow.py) logs our models to a local MLflow store and registers the final model. It needs no account: everything goes to `mlflow.db` (runs, metrics, registry) and `mlruns/` (model files), and both are git-ignored.
+
+```bash
+python src/train_mlflow.py --quick    # small models, about 30 s: checks that everything works
+python src/train_mlflow.py            # tuned models, about 2 min
+mlflow ui --backend-store-uri sqlite:///mlflow.db     # then open http://127.0.0.1:5000
+```
+
+- **Experiment `purchase-intent`:** one run per model (logistic regression, random forest, XGBoost, KNN, LightGBM, stacking). Each run logs the key hyperparameters (tuned values from `09_fine_tuning.ipynb`), 5-fold CV average precision (mean and SD), CV ROC-AUC, and the fitted pipeline.
+- **Model Registry:** the stacking ensemble is registered as `purchase-intent-stacking`, and the alias `champion` points to the latest version. Load it with `mlflow.sklearn.load_model("models:/purchase-intent-stacking@champion")`.
+- **Training set only:** the script cross-validates on `train_raw.csv`. The test set is evaluated once, in `09_fine_tuning.ipynb`.
+- All models use the shared `session_preprocessing` pipeline, so some CV scores differ from the notebook, where each model had its own tuned preprocessing. KNN shows the largest gap (0.657 here vs 0.737), because the notebook's KNN also used log transforms and robust scaling.
+
+| Run | CV AP (mean ± SD) | CV ROC-AUC |
+|---|---|---|
+| logistic_regression | 0.682 ± 0.011 | 0.916 |
+| random_forest | 0.753 ± 0.025 | 0.932 |
+| xgboost | 0.754 ± 0.025 | 0.934 |
+| knn | 0.657 ± 0.012 | 0.902 |
+| lightgbm | 0.750 ± 0.025 | 0.933 |
+| **stacking** (registered) | **0.754 ± 0.026** | **0.933** |
+
+![MLflow runs table](docs/mlflow/runs_table.png)
+![Stacking run: parameters and metrics](docs/mlflow/stacking_run.png)
+![Registered model with the champion alias](docs/mlflow/registered_model.png)
 
 ---
 
