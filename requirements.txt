@@ -14,3 +14,6 @@ lightgbm>=4.0
 # Running the notebooks
 ipykernel>=6.29
 jupyterlab>=4.0
+
+# Experiment tracking and model registry (local, no account needed)
+mlflow>=3.0
