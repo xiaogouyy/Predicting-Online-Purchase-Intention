@@ -38,6 +38,54 @@
 
 ---
 
+## Software architecture
+
+The diagram is written as code (Mermaid), so GitHub renders it and it changes with the project: solid arrows exist now, and dashed boxes and arrows are planned (one feature branch per team member).
+
+```mermaid
+flowchart LR
+    subgraph DATA["Data"]
+        RAW["UCI raw CSV<br/>data/raw"]
+        EDA["01_eda.ipynb<br/>dedupe + stratified 80/20 split"]
+        SPLIT[("train_raw.csv / test_raw.csv<br/>data/processed")]
+        VALID["Data validation<br/>(planned)"]
+    end
+
+    subgraph MODEL["Modelling"]
+        PREP["notebooks/session_preprocessing.py<br/>shared feature pipeline"]
+        NB["Notebooks 02-09<br/>individual models, comparison,<br/>tuning, final stacking ensemble"]
+        TRAIN["src/train_mlflow.py<br/>5-fold CV, logs 6 models"]
+        REFAC["Training pipeline refactor<br/>(planned)"]
+    end
+
+    subgraph SERVE["Tracking & serving"]
+        TRACK[("MLflow tracking<br/>local SQLite: mlflow.db")]
+        REG["MLflow Model Registry<br/>purchase-intent-stacking<br/>alias: champion"]
+        API["Prediction API<br/>FastAPI (planned)"]
+        APP["Streamlit app<br/>marketing users (planned)"]
+    end
+
+    subgraph CI["CI"]
+        PUSH["Push / pull request<br/>from feature/* branches"]
+        GHA["GitHub Actions<br/>pytest unit tests"]
+        MAIN["Protected main branch"]
+    end
+
+    RAW --> EDA --> SPLIT --> PREP
+    SPLIT -.-> VALID -.-> PREP
+    PREP --> NB
+    PREP --> TRAIN
+    TRAIN -.-> REFAC
+    TRAIN -->|"params, metrics, models"| TRACK
+    TRACK --> REG
+    REG -.->|"loads champion model"| API
+    API -.-> APP
+    PUSH --> GHA -->|"required check"| MAIN
+
+    classDef planned stroke-dasharray: 5 5
+    class VALID,REFAC,API,APP planned
+```
+
 ## Repository structure
 
 ```
