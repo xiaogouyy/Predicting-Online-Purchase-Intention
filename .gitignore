@@ -22,3 +22,8 @@ env/
 # Fitted models: large binaries, rebuilt by running the notebooks
 *.pkl
 *.joblib
+
+# MLflow local tracking store (rebuilt by src/train_mlflow.py)
+mlflow.db
+mlruns/
+mlartifacts/

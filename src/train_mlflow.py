@@ -1,120 +1,176 @@
-"""Train the project's models, log them to MLflow, and register the final stacking ensemble.
+"""Log our models to MLflow and register the final stacking ensemble.
 
-Usage (from the repo root, after running 01_eda.ipynb so data/processed/train_raw.csv exists):
-    python src/train_mlflow.py            # full run, a few minutes
-    python src/train_mlflow.py --quick    # smaller forests, for a fast check
+How to run (from the repo root, after 01_eda.ipynb has written data/processed/train_raw.csv):
+    python src/train_mlflow.py --quick    # small models, about 1 minute: checks that everything works
+    python src/train_mlflow.py            # tuned models, a few minutes
     mlflow ui --backend-store-uri sqlite:///mlflow.db     # then open http://127.0.0.1:5000
 
-Everything is stored locally (mlflow.db + mlruns/), so no account is needed.
-Only the training set is used (5-fold CV). The test set stays untouched, as in 09_fine_tuning.
-Hyperparameters are the tuned values printed in 09_fine_tuning.ipynb; the preprocessing is the shared
-session_preprocessing pipeline, so CV scores can differ slightly from the notebook.
+What it does:
+    1. For each of the 6 models: 5-fold cross-validation on the TRAINING set only,
+       then one MLflow "run" with the parameters, the CV scores and the fitted model.
+    2. Registers the stacking model in the Model Registry and gives it the alias "champion".
+
+Everything is stored locally in mlflow.db (runs, metrics, registry) and mlruns/ (model files),
+so no account is needed. The test set is NOT used here: it is evaluated once, in 09_fine_tuning.
 """
 import argparse
 import sys
 from pathlib import Path
 
 import mlflow
-import numpy as np
 import pandas as pd
 from lightgbm import LGBMClassifier
-from mlflow.models import infer_signature
-from mlflow.tracking import MlflowClient
 from sklearn.ensemble import RandomForestClassifier, StackingClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import average_precision_score, roc_auc_score
 from sklearn.model_selection import StratifiedKFold, cross_validate
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
 from xgboost import XGBClassifier
 
+# The shared preprocessing lives in notebooks/, so we add that folder to Python's import path.
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "notebooks"))
+PREPROCESSING_FILE = ROOT / "notebooks" / "session_preprocessing.py"
+sys.path.insert(0, str(PREPROCESSING_FILE.parent))
 from session_preprocessing import make_preprocessing_pipeline  # noqa: E402
 
 SEED = 42
 TARGET = "Revenue"
-EXPERIMENT = "purchase-intent"
-REGISTERED_NAME = "purchase-intent-stacking"
+EXPERIMENT_NAME = "purchase-intent"
+REGISTERED_MODEL_NAME = "purchase-intent-stacking"
+TRAIN_FILE = ROOT / "data" / "processed" / "train_raw.csv"
+
+# The order in which the models are trained and logged. Stacking (the final model) comes last.
+MODEL_NAMES = ["logistic_regression", "random_forest", "xgboost", "knn", "lightgbm", "stacking"]
+STACKING_MEMBERS = ["random_forest", "xgboost", "knn", "lightgbm"]
+
+# Tuned hyperparameters, copied from the outputs of notebooks/09_fine_tuning.ipynb.
+# (Logistic regression was not tuned there, so it keeps simple defaults.)
+PARAMS = {
+    "logistic_regression": {"C": 1.0, "max_iter": 2000},
+    "random_forest": {"n_estimators": 500, "max_depth": 10, "min_samples_leaf": 20, "max_features": 0.3,
+                      "max_samples": 0.6, "criterion": "entropy"},
+    "xgboost": {"n_estimators": 175, "learning_rate": 0.02, "max_depth": 6, "min_child_weight": 9.04,
+                "gamma": 2.196, "subsample": 0.8006, "colsample_bytree": 0.8576, "reg_alpha": 0.0042,
+                "reg_lambda": 0.6533, "scale_pos_weight": 2.32},
+    "knn": {"n_neighbors": 65, "p": 1, "weights": "uniform"},
+    "lightgbm": {"n_estimators": 350, "learning_rate": 0.01, "num_leaves": 38, "min_child_samples": 100,
+                 "min_split_gain": 0.4833, "subsample": 0.9256, "subsample_freq": 1, "colsample_bytree": 0.9672,
+                 "reg_alpha": 2.5825, "reg_lambda": 0.1228},
+}
+QUICK_N_ESTIMATORS = 50  # with --quick, every tree model uses only 50 trees
 
 
-def base_estimators(quick=False):
-    """Tuned hyperparameters from 09_fine_tuning.ipynb (quick=True shrinks the forests)."""
-    k = 0.2 if quick else 1.0
-    return {
-        "logistic_regression": LogisticRegression(max_iter=2000, C=1.0),
-        "random_forest": RandomForestClassifier(
-            n_estimators=int(500 * k), max_depth=10, min_samples_leaf=20, max_features=0.3,
-            max_samples=0.6, criterion="entropy", random_state=SEED, n_jobs=-1),
-        "xgboost": XGBClassifier(
-            n_estimators=int(175 * k), learning_rate=0.02, max_depth=6, min_child_weight=9.04,
-            gamma=2.196, subsample=0.8006, colsample_bytree=0.8576, reg_alpha=0.0042,
-            reg_lambda=0.6533, scale_pos_weight=2.32, eval_metric="logloss", random_state=SEED, n_jobs=-1),
-        "knn": KNeighborsClassifier(n_neighbors=65, p=1, weights="uniform"),
-        "lightgbm": LGBMClassifier(
-            n_estimators=int(350 * k), learning_rate=0.01, num_leaves=38, min_child_samples=100,
-            min_split_gain=0.4833, subsample=0.9256, subsample_freq=1, colsample_bytree=0.9672,
-            reg_alpha=2.5825, reg_lambda=0.1228, random_state=SEED, verbose=-1, n_jobs=-1),
-    }
+def get_params(name, quick=False):
+    """Return the hyperparameters for one model (fewer trees if quick=True)."""
+    params = dict(PARAMS[name])  # a copy, so we never change PARAMS itself
+    if quick and "n_estimators" in params:
+        params["n_estimators"] = QUICK_N_ESTIMATORS
+    return params
+
+
+def make_classifier(name, quick=False):
+    """Create one unfitted classifier from its name."""
+    if name == "stacking":
+        # Stacking: the 4 shortlisted models make predictions, and a logistic regression combines them.
+        members = [(member, make_classifier(member, quick)) for member in STACKING_MEMBERS]
+        return StackingClassifier(
+            estimators=members,
+            final_estimator=LogisticRegression(max_iter=1000),
+            stack_method="predict_proba",
+            cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED),
+        )
+
+    params = get_params(name, quick)
+    if name == "logistic_regression":
+        return LogisticRegression(**params)
+    if name == "random_forest":
+        return RandomForestClassifier(**params, random_state=SEED, n_jobs=-1)
+    if name == "xgboost":
+        return XGBClassifier(**params, eval_metric="logloss", random_state=SEED, n_jobs=-1)
+    if name == "knn":
+        return KNeighborsClassifier(**params)
+    if name == "lightgbm":
+        return LGBMClassifier(**params, random_state=SEED, verbose=-1, n_jobs=-1)
+    raise ValueError(f"Unknown model name: {name}")
 
 
 def build_model(name, quick=False):
-    """Return an unfitted sklearn Pipeline: shared preprocessing + one model (or the stacking ensemble)."""
-    est = base_estimators(quick)
+    """Return an unfitted pipeline: shared preprocessing, then the classifier."""
+    return Pipeline([
+        ("prep", make_preprocessing_pipeline(include_pagevalues=True)),
+        ("model", make_classifier(name, quick)),
+    ])
+
+
+def params_to_log(name, quick):
+    """The parameters we show in MLflow for one run."""
     if name == "stacking":
-        members = [(m, est[m]) for m in ["random_forest", "xgboost", "knn", "lightgbm"]]
-        model = StackingClassifier(members, final_estimator=LogisticRegression(max_iter=1000),
-                                   stack_method="predict_proba",
-                                   cv=StratifiedKFold(5, shuffle=True, random_state=SEED))
+        params = {"members": ", ".join(STACKING_MEMBERS), "final_estimator": "logistic_regression"}
     else:
-        model = est[name]
-    return Pipeline([("prep", make_preprocessing_pipeline(include_pagevalues=True)), ("model", model)])
+        params = get_params(name, quick)
+    params["model"] = name
+    params["quick"] = quick
+    params["cv_folds"] = 5
+    params["include_pagevalues"] = True
+    return params
 
 
-MODEL_NAMES = ["logistic_regression", "random_forest", "xgboost", "knn", "lightgbm", "stacking"]
+def main(quick=False):
+    # Step 1: tell MLflow where to store everything, and which experiment to use (created if missing).
+    mlflow.set_tracking_uri(f"sqlite:///{ROOT / 'mlflow.db'}")
+    mlflow.set_experiment(EXPERIMENT_NAME)
 
+    # Step 2: load the TRAINING data only. X = the 17 session features, y = 1 if the visitor bought.
+    train = pd.read_csv(TRAIN_FILE)
+    X = train.drop(columns=[TARGET, "source_row_id"], errors="ignore")
+    y = train[TARGET].astype(int)
 
-def run(train_path, quick=False, tracking_uri=f"sqlite:///{ROOT / 'mlflow.db'}"):
-    mlflow.set_tracking_uri(tracking_uri)
-    mlflow.set_experiment(EXPERIMENT)
-    train = pd.read_csv(train_path)
-    X = train.drop(columns=[c for c in [TARGET, "source_row_id"] if c in train])
-    y = train[TARGET].astype(int).to_numpy()
-    cv = StratifiedKFold(5, shuffle=True, random_state=SEED)
+    # The same 5 folds for every model, so the scores are comparable.
+    folds = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
 
+    stacking_model_uri = None
     for name in MODEL_NAMES:
-        pipe = build_model(name, quick)
-        with mlflow.start_run(run_name=name) as active:
-            scores = cross_validate(pipe, X, y, cv=cv, scoring=["average_precision", "roc_auc"])
-            mlflow.log_params({"model": name, "quick": quick, "cv_folds": 5, "include_pagevalues": True})
-            mlflow.log_params({f"model__{k}": v for k, v in pipe.named_steps["model"].get_params().items()
-                               if isinstance(v, (int, float, str, bool)) and not k.startswith("cv")})
-            mlflow.log_metrics({
-                "cv_ap_mean": float(np.mean(scores["test_average_precision"])),
-                "cv_ap_sd": float(np.std(scores["test_average_precision"])),
-                "cv_roc_auc_mean": float(np.mean(scores["test_roc_auc"])),
-            })
-            pipe.fit(X, y)
-            p = pipe.predict_proba(X)[:, 1]
-            mlflow.log_metrics({"train_ap": average_precision_score(y, p), "train_roc_auc": roc_auc_score(y, p)})
-            mlflow.set_tag("stage", "final-model" if name == "stacking" else "baseline")
-            mlflow.sklearn.log_model(
-                pipe, name="model", input_example=X.head(3),
-                serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
-                code_paths=[str(ROOT / "notebooks" / "session_preprocessing.py")],  # model loads on its own
-                signature=infer_signature(X.head(50), pipe.predict_proba(X.head(50))[:, 1]),
-                registered_model_name=REGISTERED_NAME if name == "stacking" else None)
-            print(f"{name:20s} CV AP = {np.mean(scores['test_average_precision']):.3f}  (run {active.info.run_id[:8]})")
+        print(f"Training {name} ...")
+        model = build_model(name, quick)
 
-    client = MlflowClient()
-    latest = max(client.search_model_versions(f"name='{REGISTERED_NAME}'"), key=lambda v: int(v.version))
-    client.set_registered_model_alias(REGISTERED_NAME, "champion", latest.version)
-    print(f"Registered {REGISTERED_NAME} v{latest.version} with alias 'champion'")
+        # Step 3: one MLflow run per model. Everything logged inside the "with" block belongs to this run.
+        with mlflow.start_run(run_name=name):
+            # 3a. Cross-validation: train on 4 folds, score on the 5th, 5 times.
+            scores = cross_validate(model, X, y, cv=folds, scoring=["average_precision", "roc_auc"])
+            ap = scores["test_average_precision"]
+            auc = scores["test_roc_auc"]
+
+            # 3b. Log the parameters and the CV metrics.
+            mlflow.log_params(params_to_log(name, quick))
+            mlflow.log_metric("cv_ap_mean", ap.mean())
+            mlflow.log_metric("cv_ap_sd", ap.std())
+            mlflow.log_metric("cv_roc_auc_mean", auc.mean())
+            mlflow.log_metric("cv_roc_auc_sd", auc.std())
+
+            # 3c. Fit on the whole training set and save the fitted pipeline as an MLflow model.
+            #     cloudpickle + code_paths: our pipeline uses a custom class from session_preprocessing.py,
+            #     so we save that file next to the model, and the model can be loaded anywhere.
+            model.fit(X, y)
+            model_info = mlflow.sklearn.log_model(
+                model,
+                name="model",
+                serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
+                code_paths=[str(PREPROCESSING_FILE)],
+                input_example=X.head(5),
+            )
+            if name == "stacking":
+                stacking_model_uri = model_info.model_uri
+
+        print(f"  CV AP = {ap.mean():.4f} (sd {ap.std():.4f}) | CV ROC-AUC = {auc.mean():.4f}")
+
+    # Step 4: put the stacking model in the Model Registry and point the alias "champion" at it.
+    version = mlflow.register_model(stacking_model_uri, REGISTERED_MODEL_NAME)
+    mlflow.MlflowClient().set_registered_model_alias(REGISTERED_MODEL_NAME, "champion", version.version)
+    print(f"Registered '{REGISTERED_MODEL_NAME}' version {version.version} with alias 'champion'")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--train", default=str(ROOT / "data" / "processed" / "train_raw.csv"))
-    parser.add_argument("--quick", action="store_true")
+    parser = argparse.ArgumentParser(description="Log the project's models to MLflow.")
+    parser.add_argument("--quick", action="store_true", help="use small models for a fast test run")
     args = parser.parse_args()
-    run(args.train, quick=args.quick)
+    main(quick=args.quick)
