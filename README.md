@@ -92,13 +92,14 @@ flowchart LR
 .
 ├── README.md                       ← this file
 ├── requirements.txt                ← Python dependencies
-├── session_preprocessing.py        ← helper module imported by the EDA notebook
+├── .github/workflows/ci.yml        ← GitHub Actions: runs pytest on every push and pull request
 │
 ├── data/                           ← not committed; see data/README.md for how to get it
 │   ├── raw/                        ←    online_shoppers_intention.csv from UCI
 │   └── processed/                  ←    train_raw.csv (9,764 sessions), test_raw.csv (2,441), written by 01_eda
 │
 ├── notebooks/                      ← numbered in the order to run them
+│   ├── session_preprocessing.py    ← shared feature pipeline, used by the notebooks, src/ and tests/
 │   ├── 01_eda.ipynb                ← 1. data understanding, EDA, feature engineering, split
 │   ├── 02_logistic_regression.ipynb  ← 2. individual model notebooks (one per team member)
 │   ├── 03_naive_bayes.ipynb
@@ -110,7 +111,7 @@ flowchart LR
 │   └── 09_fine_tuning.ipynb        ← 4. tuning, ensembles, final model, test evaluation
 │
 ├── src/train_mlflow.py             ← logs the models to MLflow and registers the final model
-├── tests/                          ← pytest unit tests (run by GitHub Actions)
+├── tests/                          ← pytest unit tests for the preprocessing and the models (run by CI)
 ├── docs/mlflow/                    ← MLflow UI screenshots
 │
 └── results/                        ← outputs, one folder per notebook (same name without the number)
