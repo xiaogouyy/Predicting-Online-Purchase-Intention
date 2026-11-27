@@ -17,3 +17,6 @@ jupyterlab>=4.0
 
 # Experiment tracking and model registry (local, no account needed)
 mlflow>=3.0
+
+# Streamlit frontend
+streamlit>=1.40
