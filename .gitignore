@@ -27,3 +27,11 @@ env/
 mlflow.db
 mlruns/
 mlartifacts/
+
+# Local test and coverage reports (CI publishes reports as artifacts)
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+junit.xml
