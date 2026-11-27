@@ -1,4 +1,7 @@
-"""Download and verify the project's original UCI dataset."""
+"""Download, validate and split the project's original UCI dataset.
+
+Run from the repository root: python src/data_validation.py
+"""
 
 from hashlib import sha256
 from io import BytesIO
@@ -8,6 +11,7 @@ from zipfile import ZipFile
 
 import numpy as np
 import pandas as pd
+from sklearn.model_selection import train_test_split
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -110,7 +114,71 @@ def validate_data(df):
     return df
 
 
+def create_splits(df, output_dir=None):
+    """Reproduce the EDA split and retain source-row IDs for auditing.
+
+    Input is the validated raw frame in its original CSV row order.
+    Source-row IDs are audit keys, never model input columns.
+    """
+    raw = df.reset_index(drop=True)
+    duplicate_mask = raw.duplicated(keep="first")
+    removed = raw.loc[duplicate_mask].copy()
+    removed.insert(0, "source_row_id", removed.index)
+
+    clean = raw.loc[~duplicate_mask].copy()
+    clean.index.name = "source_row_id"
+    clean["Revenue"] = clean["Revenue"].astype(int)
+    X = clean.drop(columns="Revenue")
+    y = clean["Revenue"]
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.20, random_state=42, stratify=y
+    )
+
+    if not set(X_train.index).isdisjoint(X_test.index):
+        raise ValueError("Training and test source-row IDs overlap.")
+    if len(X_train) + len(X_test) != len(clean):
+        raise ValueError("The split lost or duplicated rows.")
+    if not X_train.index.equals(y_train.index) or not X_test.index.equals(y_test.index):
+        raise ValueError("Features and labels are not aligned.")
+    if y_train.nunique() != 2 or y_test.nunique() != 2:
+        raise ValueError("Each split must contain both purchase classes.")
+
+    # Match the EDA integrity check for both PageValues feature settings.
+    train_keys = pd.util.hash_pandas_object(
+        X_train.drop(columns="PageValues"), index=False
+    )
+    test_keys = pd.util.hash_pandas_object(
+        X_test.drop(columns="PageValues"), index=False
+    )
+    if not set(train_keys).isdisjoint(test_keys):
+        raise ValueError("The same session feature values occur in both splits.")
+
+    train = X_train.join(y_train).sort_index()
+    test = X_test.join(y_test).sort_index()
+    manifest = pd.concat([
+        pd.DataFrame({"source_row_id": X_train.index, "partition": "train"}),
+        pd.DataFrame({"source_row_id": X_test.index, "partition": "test"}),
+    ]).sort_values("source_row_id")
+
+    output_dir = Path(output_dir) if output_dir is not None else ROOT / "data" / "processed"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    train.to_csv(output_dir / "train_raw.csv")
+    test.to_csv(output_dir / "test_raw.csv")
+    removed.to_csv(output_dir / "removed_exact_duplicates.csv", index=False)
+    manifest.to_csv(output_dir / "split_manifest.csv", index=False)
+
+    print(f"Duplicates removed: {int(duplicate_mask.sum()):,}")
+    print(f"Rows after deduplication: {len(clean):,}")
+    print(f"Train rows: {len(train):,}")
+    print(f"Test rows: {len(test):,}")
+    print("Split integrity checks passed.")
+    print(f"Saved split files to: {output_dir}")
+    return train, test
+
+
 if __name__ == "__main__":
     path = download_data()
     df = pd.read_csv(path)
     validate_data(df)
+    create_splits(df)
