@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   tests:
     runs-on: ubuntu-latest
@@ -18,6 +21,28 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt pytest
-      - name: Run unit tests
-        run: pytest -v
+          pip install -r requirements-dev.txt
+      - name: Run unit tests with coverage
+        run: >-
+          python -m pytest -v --cov --cov-report=term-missing
+          --cov-report=xml:coverage.xml --cov-report=html:htmlcov
+          --junitxml=junit.xml
+      - name: Publish coverage summary
+        if: always()
+        run: |
+          if [ -f .coverage ]; then
+            echo '## Python module coverage' >> "$GITHUB_STEP_SUMMARY"
+            echo '```text' >> "$GITHUB_STEP_SUMMARY"
+            python -m coverage report >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload test and coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-and-coverage-reports
+          path: |
+            coverage.xml
+            htmlcov/
+            junit.xml
+          if-no-files-found: warn

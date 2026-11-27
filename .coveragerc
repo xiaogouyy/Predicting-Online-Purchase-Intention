@@ -1,0 +1,11 @@
+[run]
+branch = True
+source =
+    src
+    notebooks
+omit =
+    *.ipynb
+
+[report]
+show_missing = True
+precision = 2
