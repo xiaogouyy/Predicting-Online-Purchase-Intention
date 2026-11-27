@@ -35,7 +35,7 @@
 - **Cross-validation consistency:** The repeated cross-validation estimate (**AP 0.757 ± 0.013**, across 3 × 5 folds) is close to the reported test performance (**AP 0.763**). This agreement is encouraging, but it does not eliminate potential bias from earlier test-set exposure.
 - **"`PageValues` is the number-one predictor of purchase; after it, the month and the exit rate matter most."** This holds for every model we trained.
 - **Main caveat:** Model performance depends heavily on `PageValues`, which may contain information closely related to purchase outcomes. Removing this feature reduces cross-validation AP from **0.758 to 0.383**. Therefore, the reported performance should be interpreted as an **offline, whole-session benchmark**, rather than evidence of real-time prediction capability.
-- - **Model card:** [docs/model_card.md](docs/model_card.md), covering intended use, metrics and limitations.
+- **Model card:** [docs/model_card.md](docs/model_card.md), covering intended use, metrics and limitations.
 
 ---
 
