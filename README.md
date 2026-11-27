@@ -56,7 +56,7 @@ flowchart LR
         PREP["notebooks/session_preprocessing.py<br/>shared feature pipeline"]
         NB["Notebooks 02-09<br/>individual models, comparison,<br/>tuning, final stacking ensemble"]
         TRAIN["src/train_mlflow.py<br/>5-fold CV, logs 6 models"]
-        REFAC["Training pipeline refactor<br/>(planned)"]
+        REFAC["src/train.py + src/evaluate.py<br/>final model from 09, settings in<br/>configs/training.yaml"]
     end
 
     subgraph SERVE["Tracking & serving"]
@@ -75,6 +75,7 @@ flowchart LR
     RAW --> EDA --> SPLIT --> PREP
     SPLIT -.-> VALID -.-> PREP
     PREP --> NB
+    NB -->|"tuned settings"| REFAC
     PREP --> TRAIN
     TRAIN -.-> REFAC
     TRAIN -->|"params, metrics, models"| TRACK
@@ -84,7 +85,7 @@ flowchart LR
     PUSH --> GHA -->|"required check"| MAIN
 
     classDef planned stroke-dasharray: 5 5
-    class VALID,REFAC,API,APP planned
+    class VALID,API,APP planned
 ```
 
 ## Repository structure
@@ -113,6 +114,9 @@ flowchart LR
 │   └── streamlit_app.py            ← Streamlit frontend for CSV upload, validation and data preview
 │
 ├── src/train_mlflow.py             ← logs the models to MLflow and registers the final model
+├── src/train.py, src/evaluate.py   ← final model of 09 as scripts: train + threshold, then test evaluation
+├── src/model_pipeline.py           ←    pipelines shared by train.py and evaluate.py
+├── configs/training.yaml           ←    tuned hyperparameters, feature settings, CV and output paths
 ├── tests/                          ← pytest unit tests for the preprocessing and the models (run by CI)
 ├── docs/mlflow/                    ← MLflow UI screenshots
 │
@@ -145,6 +149,13 @@ jupyter lab        # or open the notebooks in VS Code / Google Colab
 - `08_model_comparison.ipynb` writes `results/model_comparison/shortlist.json`, which `09_fine_tuning.ipynb` reads, so run them in that order.
 - `09_fine_tuning.ipynb` runs several random searches and takes about 25 minutes on a laptop.
 - In the final modelling workflow, `09_fine_tuning.ipynb` performs the final test-set evaluation in a guarded cell at the end. Earlier test-set evaluations in individual-model notebooks are discussed in Section 5.
+
+**Final model without the notebook.** The final model of `09_fine_tuning.ipynb` can also be trained and evaluated from the command line. The tuned hyperparameters are in [configs/training.yaml](configs/training.yaml), so a change there needs no code change. The random searches themselves stay in the notebook.
+
+```bash
+python src/train.py       # 15-fold CV estimate, F1 threshold, refit on all training data -> models/final_model.joblib
+python src/evaluate.py    # test set vs. baselines, bootstrap CIs -> results/training_pipeline/
+```
 
 ## Experiment tracking (MLflow)
 

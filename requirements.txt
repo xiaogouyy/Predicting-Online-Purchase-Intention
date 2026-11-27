@@ -10,6 +10,7 @@ cloudpickle>=3.0
 threadpoolctl>=3.1
 xgboost>=3.0
 lightgbm>=4.0
+pyyaml>=6.0          # reads configs/training.yaml
 
 # Running the notebooks
 ipykernel>=6.29
