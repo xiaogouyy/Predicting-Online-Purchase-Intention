@@ -1,0 +1,105 @@
+# Settings for src/train.py and src/evaluate.py.
+# The model hyperparameters are the tuned values from notebooks/09_fine_tuning.ipynb (sections 2-5).
+# Paths are relative to the repo root.
+
+seed: 42
+target: Revenue
+n_jobs: 4            # number of CV folds trained at the same time (each model itself uses 1 core)
+
+data:
+  train_file: data/processed/train_raw.csv
+  test_file: data/processed/test_raw.csv
+
+output:
+  model_file: models/final_model.joblib     # *.joblib is git-ignored
+  results_dir: results/training_pipeline
+
+# The "15 fresh folds" from 09 section 6 (3 x 5-fold, new seed).
+# Used for the CV estimate of the final model and for choosing the decision threshold.
+cv:
+  n_splits: 5
+  n_repeats: 3
+  random_state: 2026
+
+# Final model (09 section 6-7): the 4 tuned models, combined by a logistic regression.
+stacking:
+  members: [random_forest, xgboost, knn, lightgbm]
+  inner_cv_splits: 5           # StackingClassifier's own CV for the members' out-of-fold predictions
+  final_max_iter: 1000
+
+evaluation:
+  n_bootstrap: 1000            # resamples of the test set for the 95 % intervals
+
+# Feature settings for each model (tuned together with the hyperparameters):
+#   drop         inputs removed before encoding ([] = all 17 inputs)
+#   engineered   add the 12 engineered features or not
+#   rare         group category levels below 1 % into one level
+#   cat_encoding onehot or ordinal (tree models only)
+#   log, scaler, cat_weight   log1p, scaler and weight of the one-hot block (KNN only)
+models:
+  random_forest:
+    drop: []
+    engineered: false
+    rare: true
+    cat_encoding: onehot
+    params:
+      n_estimators: 500
+      max_depth: 10
+      min_samples_leaf: 20
+      max_features: 0.3
+      max_samples: 0.6
+      criterion: entropy
+      class_weight: null
+
+  xgboost:
+    drop: [OperatingSystems]
+    engineered: false
+    rare: true
+    cat_encoding: onehot
+    params:
+      objective: binary:logistic
+      tree_method: hist
+      eval_metric: logloss
+      n_estimators: 175
+      learning_rate: 0.02
+      max_depth: 6
+      min_child_weight: 9.0404
+      gamma: 2.196
+      subsample: 0.8006
+      colsample_bytree: 0.8576
+      reg_alpha: 0.0042
+      reg_lambda: 0.6533
+      scale_pos_weight: 2.32
+
+  knn:
+    drop: [Informational_Duration, OperatingSystems, Browser, Region]
+    engineered: false
+    rare: false
+    log: true
+    scaler: robust
+    cat_weight: 0.5
+    params:
+      n_neighbors: 65
+      weights: uniform
+      p: 1
+      algorithm: brute
+
+  lightgbm:
+    drop: []
+    engineered: false
+    rare: true
+    cat_encoding: onehot
+    params:
+      objective: binary
+      n_estimators: 350
+      learning_rate: 0.01
+      num_leaves: 38
+      max_depth: -1
+      min_child_samples: 100
+      min_split_gain: 0.4833
+      subsample: 0.9256
+      subsample_freq: 1
+      colsample_bytree: 0.9672
+      reg_alpha: 2.5825
+      reg_lambda: 0.1228
+      scale_pos_weight: 1.0
