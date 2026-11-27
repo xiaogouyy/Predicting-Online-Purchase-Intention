@@ -99,7 +99,7 @@ flowchart LR
 │   ├── raw/                        ←    online_shoppers_intention.csv from UCI
 │   └── processed/                  ←    train_raw.csv (9,764 sessions), test_raw.csv (2,441), written by 01_eda
 │
-├── notebooks/                      ← numbered in the order to run them
+├── notebooks/                      ← modelling notebooks and Streamlit frontend
 │   ├── session_preprocessing.py    ← shared feature pipeline, used by the notebooks, src/ and tests/
 │   ├── 01_eda.ipynb                ← 1. data understanding, EDA, feature engineering, split
 │   ├── 02_logistic_regression.ipynb  ← 2. individual model notebooks (one per team member)
@@ -109,7 +109,8 @@ flowchart LR
 │   ├── 06_xgboost.ipynb
 │   ├── 07_lightgbm.ipynb
 │   ├── 08_model_comparison.ipynb   ← 3. all six models in one leak-free pipeline, error analysis, shortlist
-│   └── 09_fine_tuning.ipynb        ← 4. tuning, ensembles, final model, test evaluation
+│   ├── 09_fine_tuning.ipynb        ← 4. tuning, ensembles, final model, test evaluation
+│   └── streamlit_app.py            ← Streamlit frontend for CSV upload, validation and data preview
 │
 ├── src/train_mlflow.py             ← logs the models to MLflow and registers the final model
 ├── tests/                          ← pytest unit tests for the preprocessing and the models (run by CI)
